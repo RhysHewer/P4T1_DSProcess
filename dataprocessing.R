@@ -88,9 +88,34 @@ g.NAimp10 <- ggplot()+
         
 g.NAimp10
 
+grid.arrange(g.NAimp10, g.NATSplot08)
 
+###IMPUTATION of NAs######
+preImp <- comData
+preImp %>% sapply(function(x) sum(is.na(x)))
 
-###Imputation possible via na.interp() or imputeTS package
+preImp[4:10] <- preImp[4:10] %>% sapply(ts)
+preImp[4:10] <- preImp[4:10] %>% sapply(function(x) na.interpolation(x, option = "linear"))
+
+preImp %>% sapply(function(x) sum(is.na(x))) # zero NAs
+
+##check if correct
+impCheck <- comData$Sub_metering_3 %>% as.data.frame() %>% cbind(preImp$Sub_metering_3)
+impCheckCC <- impCheck %>% filter(complete.cases(impCheck))
+identical(impCheckCC$., impCheckCC$`preImp$Sub_metering_3`) # pre-existing values are the same = no errors due to imputation
+impCheck <- impCheck %>% filter(!complete.cases(impCheck))
+
+#Visualisation of imputation
+
+impPlot <- preImp %>% filter(datetime > "2010-06-01" & datetime < "2010-08-30")
+impPlotFilt <- impPlot %>% group_by(Date) %>% summarise(S3 = mean(Sub_metering_3))
+
+g.impPlot <- ggplot()+
+        geom_line(data = impPlotFilt, aes(Date, S3), colour = "red")+
+        geom_line(data = impFiltConv10, aes(Date, S3))
+g.impPlot
+
+grid.arrange(g.impPlot, g.NAimp10, g.NATSplot08)
 
 #Outliers (command = tso(tsobject))
 
