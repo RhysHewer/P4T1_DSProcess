@@ -8,17 +8,90 @@ data <- read_csv2("data/household_power_consumption.txt")
 str(data) 
 data %>% sapply(function(x) sum(is.na(x)))
 
-#Change data types [1:2] time, [3:9] numeric
+#Change data types [1:2] time, [3:9] time series
 dData <- data[,1:2]
+dData$datetime <- paste(dData$Date, dData$Time, sep = " ")
+dData$datetime <- dData$datetime %>% dmy_hms()
+dData$Date <- dData$Date %>% dmy()
+
+str(dData)
+dData %>% sapply(function(x) sum(is.na(x)))
 
 numData <- data[,3:9]
 numData <- numData %>% sapply(as.numeric) %>% as.data.frame()
 str(numData)
 numData %>% sapply(function(x) sum(is.na(x)))
 
+
 #Check for NA conversion
 NAindex <- which(is.na(numData$Global_active_power))
 NAcheck <- data[NAindex,] #NAs seem consistent with '?' in original data.
 
-#Re
+
+#Recombine type-amended datasets (still containing NAs)
+comData <- bind_cols(dData, numData)
+tail(comData)
+tail(data)
+
+#Add year, month, day fields to allow easier subsetting
+comData <- comData %>% mutate(year = year(datetime), month = month(datetime), day = day(datetime))
+
+save(comData, file = "output/comData.RDS")
+load("output/comData.RDS")
+
+#check for DST issues
+DST07 <- comData %>% filter(Date == "25/3/2007" | Date == "28/10/2007") # no issues found
+
+
+#####NA ISSUES################################ 
+comData %>% sapply(function(x) sum(is.na(x)))
+
+#Collate NAs (1440mins = 24hrs) (data period  2006-12-16 17:24:00 - 2010-11-26 21:02:00)
+NAident <- comData[!complete.cases(comData),]
+NAident <- NAident %>% group_by(Date) %>%
+        summarise(total = n())
+NAident$Date <- NAident$Date %>% dmy()
+
+majNA <- NAident %>% filter(total >= 1200) # more than 20 hours blank
+midNA <- NAident %>% filter(total > 60 & total < 1200) #between 1-20 hours blank
+minNA <- NAident %>% filter(total <60) # less than 1 hour
+
+#Plot time period with missing values to compare against imputation
+#Subset 2 month period in 2010 with NA, subset same period in 2008 (fewer NAs) for comparison
+#Show daily average to allow clearer plotting.
+impFilt10 <- comData %>% filter(datetime > "2010-06-01" & datetime < "2010-08-30")
+impFilt08 <- comData %>% filter(datetime > "2008-06-01" & datetime < "2008-08-30")
+impFiltConv10 <- impFilt10 %>% group_by(Date) %>% summarise(S3 = mean(Sub_metering_3))
+impFiltConv08 <- impFilt08 %>% group_by(Date) %>% summarise(S3 = mean(Sub_metering_3))
+
+#visualise initial missing data + comparison period
+g.NATSplot10 <- ggplot(impFiltConv10, aes(Date, S3))+
+        geom_line()
+g.NATSplot10
+
+g.NATSplot08 <- ggplot(impFiltConv09, aes(Date, S3))+
+        geom_line()
+g.NATSplot08
+
+#Imputation 
+tsS3impFilt10 <- ts(impFilt10$Sub_metering_3)
+tsS3impFilt10 <- tsS3impFilt10 %>% na.interpolation(option = "linear")
+
+#addition to dataframe + summary
+impFilt10$S3 <- tsS3impFilt10
+impConv10 <- impFilt10 %>% group_by(Date) %>% summarise(S3 = mean(S3))
+
+#comparison plotting
+g.NAimp10 <- ggplot()+
+        geom_line(data = impConv10, aes(Date, S3), colour = "red")+
+        geom_line(data = impFiltConv10, aes(Date, S3))
+        
+g.NAimp10
+
+
+
+###Imputation possible via na.interp() or imputeTS package
+
+#Outliers (command = tso(tsobject))
+
 
