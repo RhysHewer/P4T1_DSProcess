@@ -1,29 +1,52 @@
 source("scripts/libraries.R")
 load("output/comData.RDS")
 
-#EDA
+##########EDA - DESCRIPTIVE STATISTICS############
 
-comData <- comData %>% mutate(year = year(datetime))
-comData <- comData %>% mutate(month = month(datetime))
+#daily avg electricity use 
+dayUse <- impData %>% group_by(Date) %>% summarise(dayKWH = sum(kwhpm))
+dayAvg <- mean(dayUse$dayKWH)
 
-day1 <- comData %>% filter(Date == "28/5/2007") %>% 
-        select(Sub_metering_1)
-day1 <- ts(day1, frequency = 60*24)
-plot(day1)
 
-month1 <- comData %>% filter(year == "2007", month == "5") %>% 
-        select(Sub_metering_1)
-month1 <- ts(month1, start = c(5), frequency = 60*24*31)
-plot(month1)
+#daily avg for each sub-meter
+dayUseS1 <- impData %>% group_by(Date) %>% summarise(dayKWH = sum(sm1))
+dayAvgS1 <- mean(dayUseS1$dayKWH)
 
-comData <- comData %>% na.omit()
-comData1 <- ts(comData$Sub_metering_1, start = c(2006, 12), frequency = 60*24*365.25)
-plot(comData1)
-decompose(comData1)
+dayUseS2 <- impData %>% group_by(Date) %>% summarise(dayKWH = sum(sm2))
+dayAvgS2 <- mean(dayUseS2$dayKWH)
 
-ggplot(comData, aes(datetime, Sub_metering_1)) + geom_line()
+dayUseS3 <- impData %>% group_by(Date) %>% summarise(dayKWH = sum(sm3))
+dayAvgS3 <- mean(dayUseS3$dayKWH)
 
-comData <- comData %>% na.omit()
-totals <- colSums(comData[4:10]) %>% t() %>% as.data.frame() 
+dayUseS4 <- impData %>% group_by(Date) %>% summarise(dayKWH = sum(sm4))
+dayAvgS4 <- mean(dayUseS4$dayKWH)
 
-grand <- totals$Sub_metering_1 + totals$Sub_metering_2 + totals$Sub_metering_3
+SMdayAvgs <- data.frame(c("subMeter1", "subMeter2", "subMeter3", "subMeter4"), 
+                        c(dayAvgS1, dayAvgS2, dayAvgS3, dayAvgS4))
+colnames(SMdayAvgs) <- c("SubMeter", "dayAvg")
+
+g.dayAvg <- ggplot(SMdayAvgs, aes(SubMeter, dayAvg)) +
+        geom_col() +
+g.dayAvg
+
+
+#monthly total avg use (full months only)
+monthUseFilt <- impData %>% filter(datetime > "2007-01-01" & datetime < "2010-10-31")
+monthUse <- monthUseFilt %>% group_by(month) %>% summarise(meanPerMin = mean(kwhpm))
+monthUse$month <- monthUse$month %>% month()
+monthUse <- monthUse %>% mutate(days = days_in_month(month))
+monthUse <- monthUse %>% mutate(monthMean = days*meanPerMin*60*24)
+monthUse <- monthUse %>% mutate(dayMeanperMonth = meanPerMin*60*24)
+monthUse$month <- monthUse$month %>% as.factor()
+
+g.monthAvg <- ggplot(monthUse, aes(month, monthMean)) +
+        geom_col()
+g.monthAvg
+
+#yearly avg electricity use 2009 (final full year)
+yearUse <- impData %>% filter(year == 2009)
+yearTot <- sum(yearUse$totkwh)
+
+#min/max/ranges
+summary(impData)
+

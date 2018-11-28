@@ -43,7 +43,7 @@ load("output/comData.RDS")
 DST07 <- comData %>% filter(Date == "25/3/2007" | Date == "28/10/2007") # no issues found
 
 
-#####NA ISSUES################################ 
+###############NA ISSUES################################ 
 comData %>% sapply(function(x) sum(is.na(x)))
 
 #Collate NAs (1440mins = 24hrs) (data period  2006-12-16 17:24:00 - 2010-11-26 21:02:00)
@@ -90,7 +90,7 @@ g.NAimp10
 
 grid.arrange(g.NAimp10, g.NATSplot08)
 
-###IMPUTATION of NAs######
+#################IMPUTATION of NAs#######################
 preImp <- comData
 preImp %>% sapply(function(x) sum(is.na(x)))
 
@@ -117,6 +117,35 @@ g.impPlot
 
 grid.arrange(g.impPlot, g.NAimp10, g.NATSplot08)
 
-#Outliers (command = tso(tsobject))
 
 
+#####POST-IMPUTATION CLEAN UP###############
+impData <- preImp
+
+
+
+#######FEATURE ENGINEERING###########
+#(global_active_power*1000/60 - sub_metering_1 - sub_metering_2 - sub_metering_3) - missing energy metering
+
+impData$sm4 <- (impData$Global_active_power*1000/60) - 
+        (impData$Sub_metering_1 + impData$Sub_metering_2 + impData$Sub_metering_3)
+
+impData$totkwh = impData$Sub_metering_1 + impData$Sub_metering_2 + impData$Sub_metering_3 + impData$sm4
+
+#arrange columns in more logical order
+impData <- impData %>% select(year, month, day, Date, Time,  datetime, Global_active_power, Global_reactive_power, Voltage, Global_intensity,
+                              Sub_metering_1, Sub_metering_2, Sub_metering_3, sm4, totkwh)
+
+#Give columns more useable names
+impData <- impData %>% rename(sm1 = Sub_metering_1, sm2 = Sub_metering_2, sm3 = Sub_metering_3, kwhpm = totkwh)
+
+
+#convert watt-hour values to kilowatt-hour values (prices usually given in kwh)
+impData[11:15] <- impData[11:15]/1000
+
+#check that kwh usage per day is reasonable (26 = high/large household)
+dayUse <- impData %>% group_by(Date) %>% summarise(dayKWH = sum(totkwh))
+dayAvg <- mean(dayUse$dayKWH)
+
+save(impData, file = "output/impData.RDS")
+load("output/impData.RDS")
