@@ -59,8 +59,8 @@ minNA <- NAident %>% filter(total <60) # less than 1 hour
 #Plot time period with missing values to compare against imputation
 #Subset 2 month period in 2010 with NA, subset same period in 2008 (fewer NAs) for comparison
 #Show daily average to allow clearer plotting.
-impFilt10 <- comData %>% filter(datetime > "2010-06-01" & datetime < "2010-08-30")
-impFilt08 <- comData %>% filter(datetime > "2008-06-01" & datetime < "2008-08-30")
+impFilt10 <- comData %>% filter(datetime > "2010-06-01" & datetime < "2010-07-30")
+impFilt08 <- comData %>% filter(datetime > "2008-06-01" & datetime < "2008-07-30")
 impFiltConv10 <- impFilt10 %>% group_by(Date) %>% summarise(S3 = mean(Sub_metering_3))
 impFiltConv08 <- impFilt08 %>% group_by(Date) %>% summarise(S3 = mean(Sub_metering_3))
 
@@ -107,12 +107,16 @@ impCheck <- impCheck %>% filter(!complete.cases(impCheck))
 
 #Visualisation of imputation
 
-impPlot <- preImp %>% filter(datetime > "2010-06-01" & datetime < "2010-08-30")
+impPlot <- preImp %>% filter(datetime > "2010-06-01" & datetime < "2010-07-30")
 impPlotFilt <- impPlot %>% group_by(Date) %>% summarise(S3 = mean(Sub_metering_3))
 
 g.impPlot <- ggplot()+
-        geom_line(data = impPlotFilt, aes(Date, S3), colour = "red")+
-        geom_line(data = impFiltConv10, aes(Date, S3))
+        geom_line(data = impPlotFilt, aes(Date, S3), colour = "#E71D36", size = 2)+
+        geom_line(data = impFiltConv10, aes(Date, S3), colour = "#011627", size = 2)+
+        theme_bw() +
+        ylab("Kilowatt Hours") + 
+        xlab("Date") + 
+        ggtitle("Imputed Missing Values")
 g.impPlot
 
 grid.arrange(g.impPlot, g.NAimp10, g.NATSplot08)
@@ -149,3 +153,49 @@ dayAvg <- mean(dayUse$dayKWH)
 
 save(impData, file = "output/impData.RDS")
 load("output/impData.RDS")
+
+
+
+#############################ADDING TIME OF DAY COSTS####################################
+
+timeData <- impData
+timeData$weekday <- timeData$datetime %>% wday(label = T, abbr = F) 
+timeData$hour <- timeData$datetime %>% hour() 
+
+timeData <- timeData %>% select(weekday, hour, everything())
+timeData$timecost <- NA
+
+##Weekend Low - 7.91
+timeData[(timeData$weekday == "Saturday" | timeData$weekday == "Sunday") & 
+                         (timeData$hour >= 0 & timeData$hour < 7),]$timecost <- 7.91
+
+##Weekend Standard - 16.27
+timeData[(timeData$weekday == "Saturday" | timeData$weekday == "Sunday") & 
+                 (timeData$hour <= 23 & timeData$hour >= 7),]$timecost <- 16.27
+
+
+#weekday low - 7.91
+timeData[(timeData$weekday != "Saturday" & timeData$weekday != "Sunday") & 
+                 (timeData$hour >= 0 & timeData$hour < 7),]$timecost <- 7.91
+
+#weekday standard - 16.27
+timeData[(timeData$weekday != "Saturday" & timeData$weekday != "Sunday") & 
+                 (timeData$hour >= 7 & timeData$hour < 16),]$timecost <- 16.27
+
+#weekday high - 32.55
+timeData[(timeData$weekday != "Saturday" & timeData$weekday != "Sunday") & 
+                 (timeData$hour >= 16 & timeData$hour < 20),]$timecost <- 32.55
+
+#weeknight - 16.27
+timeData[(timeData$weekday != "Saturday" & timeData$weekday != "Sunday") & 
+                 (timeData$hour >= 20 & timeData$hour <= 23),]$timecost <- 7.91
+
+
+#Check correctly insterted
+sum(is.na(timeData$timecost)) # 0 NA
+timeCheck <- timeData %>% group_by(weekday, hour) %>% summarise(mean = mean(timecost)) # averages correspond with costs
+timeData$cost <- (timeData$kwhpm*timeData$timecost)/100 #convert to units of £
+
+save(timeData, file = "output/timeData.RDS")
+load("output/timeData.RDS")
+

@@ -1,5 +1,6 @@
 source("scripts/libraries.R")
 load("output/comData.RDS")
+load("output/impData.RDS")
 
 ##########EDA - DESCRIPTIVE STATISTICS############
 
@@ -49,4 +50,29 @@ yearTot <- sum(yearUse$totkwh)
 
 #min/max/ranges
 summary(impData)
+
+#Submeter 4 graph showing missing data
+
+missPow <- impData %>% filter(datetime > "2010-09-01" & datetime < "2010-09-30")
+missPow <- missPow %>% mutate(subTot = sm1 + sm2 + sm3)
+missPow <- missPow %>% group_by(Date) %>% summarise(subTot = sum(subTot), tot = sum(kwhpm))
+missPow$Date <- missPow$Date %>% ymd()
+str(missPow)
+
+g.miss <- ggplot() +
+        geom_area(data = missPow, aes(Date, tot), fill = "#FF9F1C") +
+        geom_area(data = missPow, aes(Date, subTot), fill = "#e0e1e2") +
+        theme_bw() +
+        ylab("Kilowatt Hours") + 
+        xlab("Date") + 
+        ggtitle("Missing Kilowatt Hours")
+g.miss
+
+##########VISUALISING + CHECKING COSTS################
+
+#check day and year averages - seem reasonable
+dayCost <- mean(timeData$cost) *24*60
+yearCost <- dayCost*365
+
+#proof of concept - day costs, last 14 days
 
