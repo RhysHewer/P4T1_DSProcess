@@ -1,6 +1,7 @@
 source("scripts/libraries.R")
 load("output/comData.RDS")
 load("output/impData.RDS")
+load("output/timeData.RDS")
 
 ##########EDA - DESCRIPTIVE STATISTICS############
 
@@ -8,6 +9,8 @@ load("output/impData.RDS")
 dayUse <- impData %>% group_by(Date) %>% summarise(dayKWH = sum(kwhpm))
 dayAvg <- mean(dayUse$dayKWH)
 
+wkdayUse <- timeData %>% group_by(weekday) %>% summarise(mean = mean(kwhpm))
+wkdayUse$mean <- wkdayUse$mean *60*24
 
 #daily avg for each sub-meter
 dayUseS1 <- impData %>% group_by(Date) %>% summarise(dayKWH = sum(sm1))
@@ -46,7 +49,7 @@ g.monthAvg
 
 #yearly avg electricity use 2009 (final full year)
 yearUse <- impData %>% filter(year == 2009)
-yearTot <- sum(yearUse$totkwh)
+yearTot <- sum(yearUse$kwhpm)
 
 #min/max/ranges
 summary(impData)
@@ -74,5 +77,43 @@ g.miss
 dayCost <- mean(timeData$cost) *24*60
 yearCost <- dayCost*365
 
-#proof of concept - day costs, last 14 days
+#proof of concept - avg day use, 14 days
+proofTest <- timeData %>% filter(Date >= "2010-03-11" & Date < "2010-03-24")
+proofTest <- proofTest %>% group_by(hour) %>% summarise(use = mean(kwhpm), cost = mean(cost), timecost = mean(timecost))
+
+#daily use graph
+g.dayUse <- ggplot(proofTest, aes(hour, use)) +
+        geom_line(colour = "#011627", size = 2) +
+        theme_bw() +
+        ylab("Kilowatt Hours") + 
+        ggtitle("Avg. Daily Energy Use & Energy Cost per Hour (pence)") +
+        theme(axis.title.x = element_blank(), axis.text.x = element_blank())
+g.dayUse
+
+g.timecost <- ggplot(proofTest, aes(hour, timecost, fill = timecost)) +
+        geom_col() +
+        scale_fill_gradient(low = "#E8BBC1", high = "#E71D36", guide=FALSE) +
+        theme_bw() +
+        ylab("Cost per Kilowatt Hour") + 
+        xlab("Time (Hour of Day)")
+g.timecost
+
+
+grid.newpage()
+grid.draw(rbind(ggplotGrob(g.dayUse), ggplotGrob(g.timecost), size = "last"))
+
+#####PLOTTING ROOM USE#####
+
+roomUse <- timeData %>% filter(Date >= "2009-03-23" & Date < "2010-03-24")
+roomUse <- roomUse %>% group_by(hour) %>% 
+        summarise(use = mean(kwhpm), cost = mean(cost),
+                  sm1 = mean(sm1), sm2 = mean(sm2), sm3 = mean(sm3), sm4 = mean(sm4))
+
+g.rooms <- ggplot() +
+        geom_line(data = roomUse, aes(hour, sm1), colour = "red") +
+        geom_line(data = roomUse, aes(hour, sm2), colour = "blue") +
+        geom_line(data = roomUse, aes(hour, sm3), colour = "green") +
+        geom_line(data = roomUse, aes(hour, sm4), colour = "black") +
+        theme_bw()
+g.rooms
 

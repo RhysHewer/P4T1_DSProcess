@@ -4,7 +4,7 @@ source("scripts/libraries.R")
 #load data (separated by ;)
 data <- read_csv2("data/household_power_consumption.txt")
 
-#Structural EDA
+#########Structural EDA############
 str(data) 
 data %>% sapply(function(x) sum(is.na(x)))
 
