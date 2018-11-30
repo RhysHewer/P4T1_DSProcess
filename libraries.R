@@ -1,7 +1,6 @@
 #load libraries
 library(tidyverse)
 library(ggplot2)
-library(RColorBrewer)
 library(lubridate)
 library(ggfortify)
 library(tsoutliers)
@@ -9,4 +8,4 @@ library(imputeTS)
 library(gridExtra)
 library(grid)
 library(forecast)
-library(tibbletime)
+

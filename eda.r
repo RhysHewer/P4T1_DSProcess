@@ -65,7 +65,7 @@ str(missPow)
 g.miss <- ggplot() +
         geom_area(data = missPow, aes(Date, tot), fill = "#FF9F1C") +
         geom_area(data = missPow, aes(Date, subTot), fill = "#e0e1e2") +
-        theme_bw() +
+        theme_bw(base_size = 20) +
         ylab("Kilowatt Hours") + 
         xlab("Date") + 
         ggtitle("Missing Kilowatt Hours")
@@ -84,7 +84,7 @@ proofTest <- proofTest %>% group_by(hour) %>% summarise(use = mean(kwhpm), cost 
 #daily use graph
 g.dayUse <- ggplot(proofTest, aes(hour, use)) +
         geom_line(colour = "#011627", size = 2) +
-        theme_bw() +
+        theme_bw(base_size = 20) +
         ylab("Kilowatt Hours") + 
         ggtitle("Avg. Daily Energy Use & Energy Cost per Hour (pence)") +
         theme(axis.title.x = element_blank(), axis.text.x = element_blank())
@@ -93,14 +93,14 @@ g.dayUse
 g.timecost <- ggplot(proofTest, aes(hour, timecost, fill = timecost)) +
         geom_col() +
         scale_fill_gradient(low = "#E8BBC1", high = "#E71D36", guide=FALSE) +
-        theme_bw() +
+        theme_bw(base_size = 20) +
         ylab("Cost per Kilowatt Hour") + 
         xlab("Time (Hour of Day)")
 g.timecost
 
 
 grid.newpage()
-grid.draw(rbind(ggplotGrob(g.dayUse), ggplotGrob(g.timecost), size = "last"))
+grid.draw(rbind(ggplotGrob(g.dayUse), ggplotGrob(g.timecost), size = "first"))
 
 #####PLOTTING ROOM USE#####
 
@@ -116,4 +116,7 @@ g.rooms <- ggplot() +
         geom_line(data = roomUse, aes(hour, sm4), colour = "black") +
         theme_bw()
 g.rooms
+
+
+
 

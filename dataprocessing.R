@@ -113,7 +113,7 @@ impPlotFilt <- impPlot %>% group_by(Date) %>% summarise(S3 = mean(Sub_metering_3
 g.impPlot <- ggplot()+
         geom_line(data = impPlotFilt, aes(Date, S3), colour = "#E71D36", size = 2)+
         geom_line(data = impFiltConv10, aes(Date, S3), colour = "#011627", size = 2)+
-        theme_bw() +
+        theme_bw(base_size = 20) +
         ylab("Kilowatt Hours") + 
         xlab("Date") + 
         ggtitle("Imputed Missing Values")
