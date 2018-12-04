@@ -199,3 +199,18 @@ timeData$cost <- (timeData$kwhpm*timeData$timecost)/100 #convert to units of £
 save(timeData, file = "output/timeData.RDS")
 load("output/timeData.RDS")
 
+
+#########OUTLIERS########       
+
+outSm1 <- tsoutliers(timeData$sm1) #31%
+outSm2 <- tsoutliers(timeData$sm2) #3.3%
+outSm3 <- tsoutliers(timeData$sm3) #none
+
+summary(timeData)[,13:17]
+
+#sm4 negative values - to zero (no change to mean/median/max)
+negVals <- sum(timeData$sm4 < 0) #0.05%
+timeData[(timeData$sm4 < 0),]$sm4 <- 0
+
+save(timeData, file = "output/timeData.RDS")
+load("output/timeData.RDS")

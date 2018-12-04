@@ -125,4 +125,28 @@ g.sm4 <- ggplot(wkdayUse, aes(time, sm4, colour = weekday)) +
 g.sm4
 
 
-##########
+##########% USE BY TIME OF DAY###########
+perZone <- dayZone %>% group_by(hour, quarter) %>% 
+        summarise(sm1 = mean(sm1), sm2 = mean(sm2), sm3 = mean(sm3), sm4 = mean(sm4))
+
+perZone$time <- paste(perZone$hour, perZone$quarter, sep = ".") %>% as.numeric()
+
+perZone <- perZone %>% mutate(total = (sm1 + sm2 + sm3 + sm4),
+                              sm1per = sm1/total*100,
+                              sm2per = sm2/total*100,
+                              sm3per = sm3/total*100,
+                              sm4per = sm4/total*100)
+
+perZone.long <- perZone %>% gather("sm1per", "sm2per", "sm3per", "sm4per", key = "sm", value = "perUse") %>% 
+        select(time, sm, perUse)
+
+g.perUse <- ggplot(perZone.long, aes(time, perUse, fill = sm)) +
+        geom_area(position = position_fill(reverse = TRUE)) +
+        theme_bw(base_size = 20) +
+        ylab("% Power Use") + 
+        xlab("Time of Day (hrs)") + 
+        ggtitle("% Power use per sub-meter") +
+        scale_fill_discrete(labels = c("Kitchen", "Laundry", "Water/Air", "Rest")) 
+g.perUse
+
+######
