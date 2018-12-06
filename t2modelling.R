@@ -1,45 +1,89 @@
 source("scripts/libraries.R")
 load("output/timeData.RDS")
 
-#############LINEAR MODELLING##############
-
-####Average model (12 weeks/4 weeks) - extract 16 weeks from 2009
+#############SIMPLE MODELLING##############
+#16 week period
+#meanf model
 avgMod <- timeData %>% filter(Date >= "2009-07-07" & Date <= "2009-10-26")
 avgMod <- avgMod %>%  group_by(Date) %>%
         summarise(totalAvg = mean(kwhpm)) 
-avgMod$totalAvg <- avgMod$totalAvg
 
-#convert to TS and predict 4 weeks
-avgModTS <- avgMod %>% filter(Date >= "2009-07-07" & Date <= "2009-09-28") %>% 
-        select(totalAvg) %>% ts(frequency = 7)
+TSavgMod <- avgMod$totalAvg %>% ts(frequency = 365.25, start = c(2009, 7))
 
-avgModPred <- meanf(avgModTS, h = 4)
-autoplot(avgModPred)
-checkresiduals(avgModPred) # Residuals check fit of model to 'train' data
+fcAvg <- tsCV(TSavgMod, forecastfunction = meanf, h = 7*4) #4 weeks (7 days x 4 weeks)
+accuracy(fcAvg, TSavgMod)
 
-#cross validation
-avgModFull <- avgMod$totalAvg %>% ts(frequency = 7)
-avgModFullPred <- tsCV(avgModFull, meanf, h = 4)
-avgModFullPred^2 %>% mean(na.rm=TRUE) %>% sqrt() # RMSE for model
-avgModFullOrig <- avgMod %>% filter(Date >= "2009-09-29" & Date <= "2009-10-26") %>% 
-        select(totalAvg) %>% ts()
+#drift model
+fcDrift <- tsCV(TSavgMod, forecastfunction = rwf, h = 7*4) #4 weeks (7 days x 4 weeks)
+accuracy(fcDrift, TSavgMod)
 
-accuracy(avgModFullPred,avgModFullOrig)
 
-###Seasonal Naive model
+#use better model to forecast
+fcDrift.Final <- rwf(TSavgMod, h = 7*4)
+autoplot(fcDrift.Final)
 
-snModPred <- snaive(avgModTS, h = 4)
-autoplot(snModPred)
-checkresiduals(snModPred) # Residuals check fit of model to 'train' data
+#################LINEAR MODELLING#############
+#1 year period
+linData <- timeData %>% filter(Date >= "2009-07-07" & Date <= "2010-07-06")
+linData <- linData %>%  group_by(Date) %>%
+        summarise(totalAvg = mean(kwhpm)) 
 
-#cross validation
-snModFull <- avgMod$totalAvg %>% ts(frequency = 7)
-snModFullPred <- tsCV(snModFull, snaive, h = 4)
-snModFullPred^2 %>% mean(na.rm=TRUE) %>% sqrt() # RMSE for model
+TSlinData <- linData$totalAvg %>% ts(frequency = 365.25, start = c(2009, 7))
+autoplot(TSlinData)
 
-avgModFullOrig <- avgMod %>% filter(Date >= "2009-09-29" & Date <= "2009-10-26") %>% 
-        select(totalAvg) %>% ts()
+#linear regression
+modLN <- tslm(TSlinData ~ season)
+fitLN <- forecast(modLN, h = 7*8)
+autoplot(fitLN)
 
-accuracy(snModFullPred,avgModFullOrig)
+checkresiduals(fitLN)
 
-####
+fitLNDF <- fitLN %>% fortify()
+
+# dont understand whether I should be splitting this train/test?
+# do not understand how to evaluate model
+# I dont understand what I've done
+
+##################DECOMPOSITION############
+
+#2 year period with classic decomp
+year2Dec <- timeData %>% filter(Date >= "2008-07-07" & Date <= "2010-07-06")
+year2Dec <- year2Dec %>%  group_by(Date) %>%
+        summarise(totalAvg = mean(kwhpm)) 
+
+TSyear2Dec <- year2Dec$totalAvg %>% ts(frequency = 7, start = 2008)
+autoplot(TSyear2Dec)
+y2DecA <- decompose(TSyear2Dec, type = "additive") 
+g.y2DecA <- autoplot(y2DecA)
+y2DecM <- decompose(TSyear2Dec, type = "multiplicative") 
+g.y2DecM <- autoplot(y2DecM)
+
+grid.arrange(g.y2DecA, g.y2DecM)
+
+y2Dec <- y2Dec %>% fortify()
+summary(y2DecA)
+
+#cannot get the dates correct on x axis - why?
+# summary does not give any useable output
+
+#16 week period with Moving Averages
+TSavgMod <- avgMod$totalAvg %>% ts(frequency = 7, start = c(2009, 7))
+autoplot(TSavgMod)
+ma7 <- ma(TSavgMod, 7)
+g.ma7 <- autoplot(ma7)
+g.ma3 <- ma(TSavgMod, 3) %>% autoplot()
+
+grid.arrange(g.ma7, g.ma3)
+summary(ma7)
+
+#1 year period with STL
+TSlinData <- linData$totalAvg %>% ts(frequency = 7, start = c(2009, 7))
+autoplot(TSlinData)
+
+stlDec <- stl(TSlinData, "periodic")
+autoplot(stlDec)
+
+
+#should I be comparing the same time periods across models?
+
+##############HOLT WINTERS###################
