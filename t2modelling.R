@@ -82,8 +82,80 @@ autoplot(TSlinData)
 
 stlDec <- stl(TSlinData, "periodic")
 autoplot(stlDec)
+summary(stlDec)
 
 
 #should I be comparing the same time periods across models?
 
 ##############HOLT WINTERS###################
+#How do I find non-seasonal data?
+#Do I create it using decomposition?
+
+###16 week period
+TSavgMod <- avgMod$totalAvg %>% ts(frequency = 7, start = c(2009, 7))
+TSavgDec <- stl(TSavgMod, "periodic")
+autoplot(TSavgDec)
+
+#extract trend
+TSavgDec_trend <- TSavgDec$time.series[,2]
+
+#exponential smoothing
+hw1 <- HoltWinters(TSavgDec_trend, gamma = NULL, seasonal = "additive")
+hw1fc <- forecast(hw1, h = 30)
+autoplot(hw1fc)
+hw1fcDf <- hw1fc %>% fortify()
+
+
+####1 year period
+TSlinData <- linData$totalAvg %>% ts(frequency = 7, start = c(2009, 7))
+TSlinDec <- stl(TSlinData, "periodic")
+autoplot(TSlinDec)
+
+#extract trend
+TSlinDec_trend <- TSlinDec$time.series[,2]
+
+#exponential smoothing
+hw2 <- HoltWinters(TSlinDec_trend, gamma = NULL, seasonal = "additive")
+hw2fc <- forecast(hw2, h = 30)
+autoplot(hw2fc) + autolayer(fitted(hw2fc))
+hw2fcDf <- hw2fc %>% fortify()
+
+###2year period with Holt winters
+TSyear2Dec <- year2Dec$totalAvg %>% ts(frequency = 7, start = 2008)
+
+#exponential smoothing
+hw3 <- HoltWinters(TSyear2Dec, seasonal = "additive")
+hw3fc <- forecast(hw3, h = 30)
+g.hw3fc <- autoplot(hw3fc) + autolayer(fitted(hw3fc))
+hw3fcDf <- hw3fc %>% fortify()
+
+##compare to decomposed
+DecTSyear2 <- stl(TSyear2Dec, "periodic")
+DecTSyear2_trend <- DecTSyear2$time.series[,2]
+hw4 <- HoltWinters(DecTSyear2_trend, gamma = NULL, seasonal = "additive")
+hw4fc <- forecast(hw4, h = 30)
+summary(hw4fc)
+g.hw4fc <- autoplot(hw4fc) + autolayer(fitted(hw4fc))
+hw4fcDf <- hw4fc %>% fortify()
+
+grid.arrange(g.hw3fc, g.hw4fc)
+
+###Monthly info for 2 years
+y2mon <- timeData %>% filter(Date >= "2008-07-07" & Date <= "2010-07-06")
+y2mon <- y2mon %>%  group_by(year, month) %>%
+        summarise(totalAvg = mean(kwhpm)) 
+
+TSy2mon <- y2mon$totalAvg %>% ts(frequency = 12, start = c(2008, 7))
+autoplot(TSy2mon)
+
+
+hw5 <- HoltWinters(TSy2mon, seasonal = "additive")
+hw5fc <- forecast(hw5, h=2)
+summary(hw5fc)
+autoplot(hw5fc)
+
+###ets selection
+mod <- ets(TSyear2Dec)
+summary(mod) # error - Additive, trend - None, season - Additive
+modFc <- forecast(mod, h=30)
+autoplot(modFc)
