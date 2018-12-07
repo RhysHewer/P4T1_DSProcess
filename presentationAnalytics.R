@@ -47,3 +47,36 @@ autoplot(conFitFin.h)
 
 ############HOW MUCH AM I SPENDING?###############
 
+#date split/cost of use
+last14 <- timeData %>% filter(Date >= "2010-03-11" & Date < "2010-03-24")
+useCost <- sum(last14$cost)
+
+useDemo <- last14 %>% group_by(hour) %>% summarise(use = mean(kwhpm)*60, cost = mean(cost), timecost = mean(timecost))
+
+#daily use graph
+g.dayUse <- ggplot(useDemo, aes(hour, use)) +
+        geom_line(colour = "#011627", size = 2) +
+        theme_bw(base_size = 20) +
+        ylab("Kilowatt Hours") + 
+        ggtitle("Hourly Energy Use (14 day avg) & Energy Cost per Hour (pence)") +
+        theme(axis.title.x = element_blank(), axis.text.x = element_blank()) +
+        coord_cartesian(xlim = c(0,23))
+g.dayUse
+
+g.timecost <- ggplot(useDemo, aes(hour, timecost, fill = timecost)) +
+        geom_col() +
+        scale_fill_gradient(low = "#E8BBC1", high = "#E71D36", guide=FALSE) +
+        theme_bw(base_size = 20) +
+        ylab("Cost per Kilowatt Hour") + 
+        xlab("Time (Hour of Day)") +
+        coord_cartesian(xlim = c(0,23))
+g.timecost
+
+
+grid.newpage()
+grid.draw(rbind(ggplotGrob(g.dayUse), ggplotGrob(g.timecost), size = "first"))
+
+
+############HOW MUCH WILL MY BILL BE?##################
+
+####Forecast to end of current quarter
