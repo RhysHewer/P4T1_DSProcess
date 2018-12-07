@@ -214,3 +214,10 @@ timeData[(timeData$sm4 < 0),]$sm4 <- 0
 
 save(timeData, file = "output/timeData.RDS")
 load("output/timeData.RDS")
+
+##########ADDING WEEKS##################
+timeData$week <- timeData$datetime %>% week()
+timeData <- timeData %>% select(year, month, week, day, weekday, hour, everything())
+
+save(timeData, file = "output/timeData.RDS")
+load("output/timeData.RDS")

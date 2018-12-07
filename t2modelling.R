@@ -27,24 +27,46 @@ autoplot(fcDrift.Final)
 linData <- timeData %>% filter(Date >= "2009-07-07" & Date <= "2010-07-06")
 linData <- linData %>%  group_by(Date) %>%
         summarise(totalAvg = mean(kwhpm)) 
+linData$t <- linData %>% rowid_to_column()
 
 TSlinData <- linData$totalAvg %>% ts(frequency = 365.25, start = c(2009, 7))
 autoplot(TSlinData)
+TSlinTrain <- linData %>% filter(Date < "2010-05-06")  
+TSlinTrain <- TSlinTrain$totalAvg %>% ts(frequency = 365.25, start = c(2009, 7)) #303 in train, predict 62
 
-#linear regression
-modLN <- tslm(TSlinData ~ season)
+#linear regression (trend model)
+modLN <- tslm(TSlinData ~ trend)
 fitLN <- forecast(modLN, h = 7*8)
-autoplot(fitLN)
+autoplot(fitLN) + autolayer(fitted(fitLN))
 
 checkresiduals(fitLN)
+summary(fitLN)
 
-fitLNDF <- fitLN %>% fortify()
+##linear regression (trend model, log transform)
+modLNlg <- tslm(TSlinData ~ trend, lambda = 0)
+fitLNlg <- forecast(modLNlg, h = 7*8)
+autoplot(fitLNlg) + autolayer(fitted(fitLNlg))
 
-# dont understand whether I should be splitting this train/test?
-# do not understand how to evaluate model
-# I dont understand what I've done
+checkresiduals(fitLNlg)
 
-##################DECOMPOSITION############
+##linear regression (trend model, quadratic)
+modLNqd <- tslm(TSlinData ~ trend + I(trend^2))
+fitLNqd <- forecast(modLNqd, h = 7*8)
+autoplot(fitLNqd) + autolayer(fitted(fitLNqd))
+
+checkresiduals(fitLNqd)
+           
+##linear regression (trend model, seasonal) # cannot do as seasonal is yearly pattern!!
+modLNsn <- tslm(TSlinTrain ~ trend)
+fitLNsn <- forecast(modLNsn, h = 64)
+autoplot(fitLNsn) + autolayer(fitted(fitLNsn)) + autolayer(TSlinData)
+
+checkresiduals(fitLNsn)
+accuracy(fitLNsn, TSlinData)      
+
+stl(TSlinTrain)
+                      
+################DECOMPOSITION############
 
 #2 year period with classic decomp
 year2Dec <- timeData %>% filter(Date >= "2008-07-07" & Date <= "2010-07-06")
@@ -159,3 +181,43 @@ mod <- ets(TSyear2Dec)
 summary(mod) # error - Additive, trend - None, season - Additive
 modFc <- forecast(mod, h=30)
 autoplot(modFc)
+
+#############TEST/TRAIN EXPERIMENTS###################  
+#create weekly period and time series
+y2week <- timeData %>% filter(Date >= "2008-07-07" & Date <= "2010-07-06")
+y2week <- y2week %>% group_by(year, week) %>%
+        summarise(totalAvg = mean(kwhpm))
+
+y2weekTest <- y2week %>% filter(year == 2010 & week >19)
+y2weekTest <- y2weekTest$totalAvg %>% ts(frequency = 7, start = c(2010, 7))
+y2weekTrain <- y2week %>% filter(!(year == 2010 & week >19))
+y2weekTrain <- y2weekTrain$totalAvg %>% ts(frequency = 7, start = c(2008, 7))
+TSy2week <- y2week$totalAvg %>% ts(frequency = 7, start = c(2008, 7))
+
+
+#Holt winters
+
+
+weekFcHW <- HoltWinters(y2weekTrain, seasonal = "additive")
+weekFcHWFC <- forecast(weekFcHW, h=8)
+autoplot(weekFcHWFC)
+
+#compare to test set
+accuracy(weekFcHWFC, TSy2week)
+
+#plot
+autoplot(weekFcHWFC) + autolayer(TSy2week) + autolayer(fitted(weekFcHWFC))
+checkresiduals(weekFcHWFC)
+
+###########Plotting practice#############
+
+as.Date(paste(2014, df$Week, 1, sep="-"), "%Y-%U-%u")
+
+DF <- weekFcHWFC %>% fortify()
+
+DF$date <- paste(y2week$year, y2week$week, 1, sep = "-") #%>% 
+DF$date <- DF$date %>% as.Date("%Y-%U-%w")
+
+g.test <- ggplot(data = DF, aes(date, Data, group = 1)) +
+        geom_line()
+g.test
