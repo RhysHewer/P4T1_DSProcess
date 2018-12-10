@@ -79,4 +79,43 @@ grid.draw(rbind(ggplotGrob(g.dayUse), ggplotGrob(g.timecost), size = "first"))
 
 ############HOW MUCH WILL MY BILL BE?##################
 
-####Forecast to end of current quarter
+####Forecast to end of current quarter/next quarter.
+##Take 6 quarters sample. Need daily useage.
+
+###To create models
+#from q2 2008 - q3 2010 (need 2 years to allow trend modelling)
+#Today's "Date" = 12 MAY 2010 to create models
+
+#Actual Costs - current quarter
+qCost <- timeData %>% filter(quarter == "2010.2" & Date < "2010-05-12")
+qUseCost <- sum(qCost$cost) #in £
+
+
+#Averaged daily data for prediction
+qTime <- timeData %>% filter(quarter >= "2008.2" & quarter < "2010.4")
+qTimeDay <- qTime %>% group_by(Date) %>% summarise(avgKwhpD = mean(kwhpm)*60*24, timecost = mean(timecost))
+qTimeDay$poundCost <- (qTimeDay$avgKwhpD * qTimeDay$timecost)/100
+TSqTimeDay <- qTimeDay$avgKwhpD %>% ts(start = c(2008, 4), frequency = 365.25)
+
+#work out horizon to end of next quarter
+fcHor1 <- qTime$Date %>% tail(1)
+fcHor2 <- "2010-05-12" %>% ymd() # fake "today"
+fcHor <- interval(fcHor2,fcHor1) %>% as.duration()/(60*60*24) 
+fcHor <- fcHor %>% as.numeric() %>% +1 #+1 to include today's date in prediction
+
+#####start modelling exploration
+autoplot(TSqTimeDay) # general plot of time series
+
+#split to test/train
+testPeriodEnd <- length(TSqTimeDay)
+testPeriodStart <- length(TSqTimeDay) - (fcHor-1)
+TSqTimeDay.test <- TSqTimeDay[testPeriodStart:testPeriodEnd]
+TSqTimeDay.train <- TSqTimeDay[1:(testPeriodStart-1)] %>% ts(start = c(2009, 4), frequency = 365.25)
+
+autoplot(TSqTimeDay.train)
+
+##decompose to look for trend/seasonality - allows better model choice
+qDec <- stl(TSqTimeDay.train, "periodic")
+autoplot(qDec)
+qDecClass <- decompose(TSqTimeDay.train, type = "multiplicative")
+autoplot(qDecClass)

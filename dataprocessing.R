@@ -221,3 +221,10 @@ timeData <- timeData %>% select(year, month, week, day, weekday, hour, everythin
 
 save(timeData, file = "output/timeData.RDS")
 load("output/timeData.RDS")
+
+###########ADDING QUARTERS#########     
+timeData$quarter <- timeData$datetime %>% quarter(with_year = TRUE)
+timeData <- timeData %>% select(year, quarter, everything())
+
+save(timeData, file = "output/timeData.RDS")
+load("output/timeData.RDS")
