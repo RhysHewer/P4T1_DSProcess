@@ -95,7 +95,7 @@ qUseCost <- sum(qCost$cost) #in £
 qTime <- timeData %>% filter(quarter >= "2008.2" & quarter < "2010.4")
 qTimeDay <- qTime %>% group_by(Date) %>% summarise(avgKwhpD = mean(kwhpm)*60*24, timecost = mean(timecost))
 qTimeDay$poundCost <- (qTimeDay$avgKwhpD * qTimeDay$timecost)/100
-TSqTimeDay <- qTimeDay$avgKwhpD %>% ts(start = c(2008, 4), frequency = 365.25)
+TSqTimeDay <- qTimeDay$avgKwhpD %>% ts(start = c(2008, 92), frequency = 365.25)
 
 #work out horizon to end of next quarter
 fcHor1 <- qTime$Date %>% tail(1)
@@ -109,13 +109,48 @@ autoplot(TSqTimeDay) # general plot of time series
 #split to test/train
 testPeriodEnd <- length(TSqTimeDay)
 testPeriodStart <- length(TSqTimeDay) - (fcHor-1)
-TSqTimeDay.test <- TSqTimeDay[testPeriodStart:testPeriodEnd]
-TSqTimeDay.train <- TSqTimeDay[1:(testPeriodStart-1)] %>% ts(start = c(2009, 4), frequency = 365.25)
+qTest <- TSqTimeDay[testPeriodStart:testPeriodEnd]
+qTrain <- TSqTimeDay[1:(testPeriodStart-1)] %>% ts(start = c(2008, 92), frequency = 365.25)
 
-autoplot(TSqTimeDay.train)
+autoplot(qTrain)
 
 ##decompose to look for trend/seasonality - allows better model choice
-qDec <- stl(TSqTimeDay.train, "periodic")
-autoplot(qDec)
-qDecClass <- decompose(TSqTimeDay.train, type = "multiplicative")
-autoplot(qDecClass)
+qDec <- stl(qTrain, "periodic")
+autoplot(qDec) # shows both trend and seasonality
+qDecM <- mstl(qTrain)
+autoplot(qDecM) # no seasonality beyond annual
+
+###Model choices (trend+seasonality) - seasonal naive (sinple), HoltWinters (exponential smoothing), 
+#nonlinear regression (regression).
+
+#seasonal naive
+qFit.sn <- snaive(qTrain, h = fcHor)
+autoplot(qFit.sn) + autolayer(fitted(qFit.sn)) + autolayer(qTrain)
+checkresiduals(qFit.sn)
+accuracy(qFit.sn, qTest)
+save(qFit.sn, file = "output/qFitsn.RDS")
+
+#linear regression
+qMod.reg <- tslm(qTrain ~ trend)
+qFit.reg <- forecast(qMod.reg, h = fcHor)
+autoplot(qFit.reg) + autolayer(fitted(qFit.reg)) + autolayer(qTrain)
+checkresiduals(qFit.reg)
+accuracy(qFit.reg, qTest)
+
+#HoltWinters/stl
+qMod.hw <- stlm(qTrain) 
+qFit.hw <- forecast(qMod.hw, modelfunction = "hw", h = fcHor)
+autoplot(qFit.hw) + autolayer(fitted(qFit.hw)) + autolayer(qTrain)
+checkresiduals(qFit.hw)
+accuracy(qFit.hw, qTest)
+
+#TBATS - 
+qMod.h <- tbats(qTrain)
+qFit.h <- forecast(qMod.h, h = fcHor)
+autoplot(qFit.h) + autolayer(fitted(qFit.h)) + autolayer(qTrain)
+checkresiduals(qFit.h)
+accuracy(qFit.h, qTest)
+
+
+
+
