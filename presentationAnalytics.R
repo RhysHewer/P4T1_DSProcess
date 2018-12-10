@@ -120,37 +120,53 @@ autoplot(qDec) # shows both trend and seasonality
 qDecM <- mstl(qTrain)
 autoplot(qDecM) # no seasonality beyond annual
 
-###Model choices (trend+seasonality) - seasonal naive (sinple), HoltWinters (exponential smoothing), 
-#nonlinear regression (regression).
+###Model choices (trend+seasonality)
 
 #seasonal naive
 qFit.sn <- snaive(qTrain, h = fcHor)
-autoplot(qFit.sn) + autolayer(fitted(qFit.sn)) + autolayer(qTrain)
+autoplot(qFit.sn) + autolayer(fitted(qFit.sn)) + autolayer(TSqTimeDay)
 checkresiduals(qFit.sn)
-accuracy(qFit.sn, qTest)
+acc.sn <- accuracy(qFit.sn, qTest)
 save(qFit.sn, file = "output/qFitsn.RDS")
 
 #linear regression
 qMod.reg <- tslm(qTrain ~ trend)
 qFit.reg <- forecast(qMod.reg, h = fcHor)
-autoplot(qFit.reg) + autolayer(fitted(qFit.reg)) + autolayer(qTrain)
+autoplot(qFit.reg) + autolayer(fitted(qFit.reg)) + autolayer(TSqTimeDay)
 checkresiduals(qFit.reg)
-accuracy(qFit.reg, qTest)
+acc.reg <- accuracy(qFit.reg, qTest)
 
-#HoltWinters/stl
-qMod.hw <- stlm(qTrain) 
-qFit.hw <- forecast(qMod.hw, modelfunction = "hw", h = fcHor)
-autoplot(qFit.hw) + autolayer(fitted(qFit.hw)) + autolayer(qTrain)
-checkresiduals(qFit.hw)
-accuracy(qFit.hw, qTest)
+#STL/Arima
+qMod.st <- stlm(qTrain, method = "arima") 
+qFit.st <- forecast(qMod.st, h = fcHor)
+autoplot(qFit.st) + autolayer(fitted(qFit.st)) + autolayer(TSqTimeDay)
+checkresiduals(qFit.st)
+acc.st <- accuracy(qFit.st, qTest)
 
-#TBATS - 
-qMod.h <- tbats(qTrain)
-qFit.h <- forecast(qMod.h, h = fcHor)
-autoplot(qFit.h) + autolayer(fitted(qFit.h)) + autolayer(qTrain)
-checkresiduals(qFit.h)
-accuracy(qFit.h, qTest)
+#compare accuracy: COMPLETE THIS
+accComp <- acc.sn %>% as.data.frame()
+accComp <- accComp %>% rbind(acc.reg, acc.st)
+accComp <- accComp %>% rownames_to_column()
 
 
+####Forecasting future
+#Today's date = 1 Oct 2010 for unknown future forecasting.
 
+#work out horizon to end of next quarter
+finalHor1 <- "2010-12-31" %>% ymd() #end of next quarter
+finalHor2 <- "2010-10-01" %>% ymd() # fake "today"
+finalHor <- interval(finalHor2,finalHor1) %>% as.duration()/(60*60*24) 
+finalHor <- finalHor %>% as.numeric() %>% +1 #+1 to include today's date in prediction        
 
+#Using STL/Arima model and full dataset (q2,2008- q3, 2010)       
+qMod.final <- stlm(TSqTimeDay, method = "arima") 
+qFit.final <- forecast(qMod.final, h = finalHor)
+autoplot(qFit.final)
+
+#fortify and combine predictions with orig data
+qFit <- qFit.final %>% fortify()
+qFit <- bind_cols(qFit, qTimeDay)
+qFit$date <- seq(from = as.Date("2008-04-01"), to = finalHor1, by = 'day')
+
+#need to add in avg costs and predict to end of quarter and next quarater 
+#add current quarter consumption to current quarter predicted
