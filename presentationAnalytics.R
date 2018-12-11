@@ -143,30 +143,42 @@ autoplot(qFit.st) + autolayer(fitted(qFit.st)) + autolayer(TSqTimeDay)
 checkresiduals(qFit.st)
 acc.st <- accuracy(qFit.st, qTest)
 
-#compare accuracy: COMPLETE THIS
+#compare accuracy:
 accComp <- acc.sn %>% as.data.frame()
 accComp <- accComp %>% rbind(acc.reg, acc.st)
 accComp <- accComp %>% rownames_to_column()
-
+accComp$Model <- c("snTrain", "snTest", "regTrain", "regTest", "arTrain", "arTest")
+accComp$rowname <- NULL
+accComp <- accComp %>% select(Model, everything())
+accComp
 
 ####Forecasting future
 #Today's date = 1 Oct 2010 for unknown future forecasting.
 
-#work out horizon to end of next quarter
-finalHor1 <- "2010-12-31" %>% ymd() #end of next quarter
+#work out horizon to end of next quarter (q1, 2011)
+finalHor1 <- "2011-03-31" %>% ymd() #end of next quarter
 finalHor2 <- "2010-10-01" %>% ymd() # fake "today"
 finalHor <- interval(finalHor2,finalHor1) %>% as.duration()/(60*60*24) 
 finalHor <- finalHor %>% as.numeric() %>% +1 #+1 to include today's date in prediction        
 
-#Using STL/Arima model and full dataset (q2,2008- q3, 2010)       
+#Using STL/Arima model and full dataset (q2,2008- q4, 2010)       
 qMod.final <- stlm(TSqTimeDay, method = "arima") 
 qFit.final <- forecast(qMod.final, h = finalHor)
 autoplot(qFit.final)
 
-#fortify and combine predictions with orig data
+#fortify to DF + add date column
 qFit <- qFit.final %>% fortify()
-qFit <- bind_cols(qFit, qTimeDay)
-qFit$date <- seq(from = as.Date("2008-04-01"), to = finalHor1, by = 'day')
+qFit <- qFit %>% rename(avgKwhpD = Data, preds = 'Point Forecast')
+qFit$date <- seq(from = as.Date("2008-04-01"), to = as.Date(finalHor1), by = 'day')
 
-#need to add in avg costs and predict to end of quarter and next quarater 
-#add current quarter consumption to current quarter predicted
+#monetise predictions (combine actual and predictions into one column and multiply by average kWh cost)
+avgKwh <- mean(qTimeDay$timecost)
+qFit$cost <- rowSums(qFit[,c("avgKwhpD", "preds")]*avgKwh/100, na.rm = TRUE)
+qCurr <- qFit %>% filter(date >= "2010-10-01" & date <= "2010-12-31")
+qCurrCost <- sum(qCurr$cost)
+qNxt <- qFit %>% filter(date >= "2011-01-01" & date <= "2011-03-31")
+qNxtCost <- sum(qNxt$cost)
+
+
+##################WHAT IS USING MOST ELECTRICITY AND WHEN?#####################
+
