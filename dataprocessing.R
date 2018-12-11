@@ -69,7 +69,7 @@ g.NATSplot10 <- ggplot(impFiltConv10, aes(Date, S3))+
         geom_line()
 g.NATSplot10
 
-g.NATSplot08 <- ggplot(impFiltConv09, aes(Date, S3))+
+g.NATSplot08 <- ggplot(impFiltConv08, aes(Date, S3))+
         geom_line()
 g.NATSplot08
 

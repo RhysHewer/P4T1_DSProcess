@@ -182,3 +182,85 @@ qNxtCost <- sum(qNxt$cost)
 
 ##################WHAT IS USING MOST ELECTRICITY AND WHEN?#####################
 
+#extract sum2009-sum2010
+dayZone<- timeData %>% filter(Date >= "2009-07-01" & Date <= "2010-06-30")
+
+#create minute feature and collect into 15 min chunks
+dayZone$quarter <- NA
+dayZone <- dayZone %>% mutate(minute = minute(datetime)) %>% 
+        select(weekday, minute, hour, quarter, everything())
+
+
+dayZone[(dayZone$minute >= 0 & dayZone$minute < 15),]$quarter <- 1
+dayZone[(dayZone$minute >= 15 & dayZone$minute < 30),]$quarter <- 2
+dayZone[(dayZone$minute >= 30 & dayZone$minute < 45),]$quarter <- 3
+dayZone[(dayZone$minute >= 45 & dayZone$minute <= 59),]$quarter <- 4
+
+#plot day average pattern for 2009 - Jan, July
+#Jan 2010
+dayZoneJan <- dayZone %>% filter(month == 1) %>%
+        group_by(hour, quarter) %>% 
+        summarise(sm1 = mean(sm1), sm2 = mean(sm2), sm3 = mean(sm3), sm4 = mean(sm4))
+
+dayZoneJan.long <- dayZoneJan %>% gather("sm1", "sm2", "sm3", "sm4", key = "sm", value = "avgKwhpm")
+
+dayZoneJan.long$time <- paste(dayZoneJan.long$hour, dayZoneJan.long$quarter, sep = ".") %>% as.numeric()
+
+
+
+g.jan10 <- ggplot(dayZoneJan.long, aes(time, avgKwhpm, group = sm, colour = sm)) +
+        geom_line(size = 2)+ 
+        theme_bw(base_size = 20) +
+        theme(axis.text.x=element_text(angle=90, hjust=1)) +
+        ylab("Average Kilowatt Hours per minute") + 
+        xlab("Time of Day") + 
+        ggtitle("Average kWh by time of day Jan 2010") +
+        scale_color_discrete(labels = c("Kitchen", "Laundry", "Water/Air", "Rest")) +
+        coord_cartesian(ylim = c(0,0.03))
+g.jan10
+
+#July 2009
+dayZoneJul <- dayZone %>% filter(month == 7) %>%
+        group_by(hour, quarter) %>% 
+        summarise(sm1 = mean(sm1), sm2 = mean(sm2), sm3 = mean(sm3), sm4 = mean(sm4))
+
+dayZoneJul.long <- dayZoneJul %>% gather("sm1", "sm2", "sm3", "sm4", key = "sm", value = "avgKwhpm")
+
+dayZoneJul.long$time <- paste(dayZoneJul.long$hour, dayZoneJul.long$quarter, sep = ".") %>% as.numeric()
+
+
+
+g.jul09 <- ggplot(dayZoneJul.long, aes(time, avgKwhpm, group = sm, colour = sm)) +
+        geom_line(size = 2)+ 
+        theme_bw(base_size = 20) +
+        theme(axis.text.x=element_text(angle=90, hjust=1)) +
+        ylab("Average Kilowatt Hours per minute") + 
+        xlab("Time of Day") + 
+        ggtitle("Average kWh by time of day Jul 2009") +
+        scale_color_discrete(labels = c("Kitchen", "Laundry", "Water/Air", "Rest")) +
+        coord_cartesian(ylim = c(0,0.03))
+g.jul09
+
+#compare
+grid.arrange(g.jan10, g.jul09)
+
+##Focus on what we can analyse - sm3
+
+#overall trend
+TSsm3 <- timeData %>% group_by(Date) %>% summarise(avgKwhPD = mean(sm3)*60*24)
+TSsm3 <- TSsm3$avgKwhPD %>% ts(frequency = 365.25, start = c(2006, 350))
+
+sm3Dec <- stl(TSsm3, "periodic")
+sm3Dec <- sm3Dec$time.series[,2]
+autoplot(sm3Dec)
+
+
+#summer 2009 - summer 10 usage
+sm3Year <- dayZone %>% group_by(Date) %>% summarise(avgKwhPD = mean(sm3)*60*24)
+
+g.sm3Year <- ggplot(sm3Year, aes(Date, avgKwhPD)) +
+        geom_line() +
+        geom_smooth()
+g.sm3Year
+
+
